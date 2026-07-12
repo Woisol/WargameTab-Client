@@ -12,6 +12,9 @@ void main() {
 
     expect(find.text('Wargame Tab'), findsOneWidget);
     expect(find.text('生涯战绩'), findsOneWidget);
+    expect(find.text('KPM'), findsOneWidget);
+    expect(find.text('总时长'), findsOneWidget);
+    expect(find.text('平均击杀'), findsOneWidget);
     expect(find.text('最近一场'), findsOneWidget);
     expect(find.text('历史对局'), findsOneWidget);
     expect(find.byType(MatchRecordCard), findsNWidgets(4));

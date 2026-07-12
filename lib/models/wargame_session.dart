@@ -62,6 +62,8 @@ class WargameSession {
     return '$minutes 分钟 $seconds 秒';
   }
 
+  String get heroTag => 'match-$sessionId';
+
 }
 
 class WargameSummary {

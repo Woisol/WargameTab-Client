@@ -33,76 +33,81 @@ class MatchRecordCard extends StatelessWidget {
           ),
         );
       },
-      child: Container(
-        margin: EdgeInsets.only(bottom: dense ? 10 : 12),
-        child: Material(
-          color: Colors.transparent,
-          child: Ink(
-            decoration: AppTheme.panelDecoration(context),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: onTap,
-              child: Padding(
-                padding: EdgeInsets.all(dense ? 14 : 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: session.kills >= session.deaths
-                                ? AppColors.kill
-                                : AppColors.death,
-                            borderRadius: BorderRadius.circular(999),
+      child: Hero(
+        tag: session.heroTag,
+        child: Container(
+          margin: EdgeInsets.only(bottom: dense ? 10 : 12),
+          child: Material(
+            color: Colors.transparent,
+            child: Ink(
+              decoration: AppTheme.panelDecoration(context),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: onTap,
+                child: Padding(
+                  padding: EdgeInsets.all(dense ? 14 : 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: session.kills >= session.deaths
+                                  ? AppColors.kill
+                                  : AppColors.death,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                session.startLabel,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '持续 ${session.durationLabel}',
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  session.startLabel,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '持续 ${session.durationLabel}',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.death,
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: dense ? 12 : 16),
-                    Row(
-                      children: [
-                        _CompactMetric(
-                          label: 'K',
-                          value: '${session.kills}',
-                          color: AppColors.kill,
-                        ),
-                        _CompactMetric(
-                          label: 'D',
-                          value: '${session.deaths}',
-                          color: AppColors.death,
-                        ),
-                        _CompactMetric(
-                          label: 'KD',
-                          value: session.kdLabel,
-                          color: colors.text,
-                        ),
-                      ],
-                    ),
-                  ],
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColors.death,
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: dense ? 12 : 16),
+                      Row(
+                        children: [
+                          _CompactMetric(
+                            label: 'K',
+                            value: '${session.kills}',
+                            color: AppColors.kill,
+                          ),
+                          _CompactMetric(
+                            label: 'D',
+                            value: '${session.deaths}',
+                            color: AppColors.death,
+                          ),
+                          _CompactMetric(
+                            label: 'KD',
+                            value: session.kdLabel,
+                            color: colors.text,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -131,9 +136,9 @@ class _CompactMetric extends StatelessWidget {
         children: [
           Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: context.wargameColors.muted),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: context.wargameColors.muted,
+            ),
           ),
           const SizedBox(width: 8),
           Flexible(

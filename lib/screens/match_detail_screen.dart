@@ -18,7 +18,13 @@ class MatchDetailScreen extends StatelessWidget {
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
-            MatchScorePanel(session: session, large: true),
+            Hero(
+              tag: session.heroTag,
+              child: Material(
+                color: Colors.transparent,
+                child: MatchScorePanel(session: session, large: true),
+              ),
+            ),
             const SizedBox(height: 14),
             _TimePanel(session: session),
             const SizedBox(height: 14),
@@ -110,7 +116,8 @@ class _TimelineChart extends StatelessWidget {
             ),
             for (final event in session.events)
               Positioned(
-                left: ((event.time.clamp(0, durationSeconds) as num).toDouble() /
+                left:
+                    ((event.time.clamp(0, durationSeconds) as num).toDouble() /
                         durationSeconds) *
                     (constraints.maxWidth - 5),
                 top: event.type == 'kill' ? midY - 28 : midY + 8,

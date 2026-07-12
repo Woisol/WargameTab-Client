@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../models/career_stats.dart';
 import '../models/wargame_session.dart';
 import '../theme/app_theme.dart';
-import '../widgets/animated_stat.dart';
+import '../widgets/career_donut_panel.dart';
 import '../widgets/match_record_card.dart';
 import '../widgets/match_score_panel.dart';
 import 'history_screen.dart';
@@ -33,7 +34,9 @@ class HomeScreen extends StatelessWidget {
             ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              sliver: SliverToBoxAdapter(child: _CareerPanel(sessions)),
+              sliver: SliverToBoxAdapter(
+                child: CareerDonutPanel(stats: CareerStats.fromSessions(sessions)),
+              ),
             ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
@@ -162,60 +165,6 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _CareerPanel extends StatelessWidget {
-  const _CareerPanel(this.sessions);
-
-  final List<WargameSession> sessions;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.wargameColors;
-    final kills = sessions.fold(0, (total, session) => total + session.kills);
-    final deaths = sessions.fold(0, (total, session) => total + session.deaths);
-    final kdRatio = deaths == 0 ? kills.toDouble() : kills / deaths;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: AppTheme.panelDecoration(context, color: colors.surfaceHigh),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SectionTitle('生涯战绩'),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _StatBox(
-                child: AnimatedStat(
-                  label: '总击杀',
-                  value: kills.toDouble(),
-                  color: AppColors.kill,
-                ),
-              ),
-              _StatBox(
-                child: AnimatedStat(
-                  label: '总死亡',
-                  value: deaths.toDouble(),
-                  color: AppColors.death,
-                ),
-              ),
-              _StatBox(
-                child: AnimatedStat(
-                  label: 'KD',
-                  value: kdRatio,
-                  decimals: 2,
-                  color: colors.text,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _LatestMatchPanel extends StatelessWidget {
   const _LatestMatchPanel(this.session);
 
@@ -295,19 +244,6 @@ class _HistoryPreviewPanel extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _StatBox extends StatelessWidget {
-  const _StatBox({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final itemWidth = width >= 390 ? (width - 60) / 3 : (width - 50) / 2;
-    return SizedBox(width: itemWidth.clamp(128, 180).toDouble(), child: child);
   }
 }
 
