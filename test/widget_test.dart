@@ -1,30 +1,53 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+import 'package:client/main.dart';
+import 'package:client/widgets/match_record_card.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:client/main.dart';
-
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('home renders mock career summary and latest match', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const WargameClientApp());
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('Wargame Tab'), findsOneWidget);
+    expect(find.text('生涯战绩'), findsOneWidget);
+    expect(find.text('最近一场'), findsOneWidget);
+    expect(find.text('历史对局'), findsOneWidget);
+    expect(find.byType(MatchRecordCard), findsNWidgets(4));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.tap(find.byType(MatchRecordCard).first);
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2026-07-10 复盘'), findsOneWidget);
+  });
+
+  testWidgets('show more opens the full history list', (tester) async {
+    await tester.pumpWidget(const WargameClientApp());
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('展示更多'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('展示更多'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('全部对局'), findsOneWidget);
+    expect(find.text('7 场'), findsOneWidget);
+  });
+
+  testWidgets('settings tab exposes theme mode choices', (tester) async {
+    await tester.pumpWidget(const WargameClientApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('主题外观'), findsOneWidget);
+    expect(find.text('深色'), findsOneWidget);
+    expect(find.text('浅色'), findsOneWidget);
+    expect(find.text('跟随系统'), findsOneWidget);
   });
 }
