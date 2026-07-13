@@ -53,19 +53,18 @@ class _DeviceScreenState extends State<DeviceScreen> {
           Text('设备', style: Theme.of(context).textTheme.displaySmall),
           const SizedBox(height: 6),
           Text(
-            '蓝牙同步入口，当前使用 mock transport。',
+            '配对通道用于接收手表自动发送的已完成对局。',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 18),
-          _ConnectionPanel(
+          _ChannelPanel(
             state: state,
-            onToggleConnection: state.connected
+            onToggleChannel: state.channelReady
                 ? widget.syncService.disconnect
-                : widget.syncService.scanAndConnect,
-            onSyncNow: widget.syncService.syncNow,
+                : widget.syncService.start,
           ),
           const SizedBox(height: 14),
-          _WatchCard(state: state),
+          _ChannelStatusCard(state: state),
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.all(18),
@@ -83,7 +82,12 @@ class _DeviceScreenState extends State<DeviceScreen> {
                   value: _lastSyncLabel(state.lastSyncAt),
                 ),
                 _SyncRow(label: '本次写入', value: '${state.lastImportedCount} 场'),
-                _SyncRow(label: '数据源', value: state.device?.name ?? '未连接'),
+                _SyncRow(
+                  label: '通道状态',
+                  value: state.channelReady ? '等待手表发送' : '尚未启用',
+                ),
+                if (state.diagnosticMessage != null)
+                  _SyncRow(label: '诊断通道', value: state.diagnosticMessage!),
                 if (state.errorMessage != null)
                   _SyncRow(label: '状态', value: state.errorMessage!),
               ],
@@ -95,22 +99,17 @@ class _DeviceScreenState extends State<DeviceScreen> {
   }
 }
 
-class _ConnectionPanel extends StatelessWidget {
-  const _ConnectionPanel({
-    required this.state,
-    required this.onToggleConnection,
-    required this.onSyncNow,
-  });
+class _ChannelPanel extends StatelessWidget {
+  const _ChannelPanel({required this.state, required this.onToggleChannel});
 
   final WatchSyncState state;
-  final VoidCallback onToggleConnection;
-  final VoidCallback onSyncNow;
+  final VoidCallback onToggleChannel;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.wargameColors;
-    final busy = state.scanning || state.syncing;
-    final connected = state.connected;
+    final busy = state.syncing;
+    final ready = state.channelReady;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: AppTheme.panelDecoration(context, color: colors.surfaceHigh),
@@ -124,18 +123,17 @@ class _ConnectionPanel extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: (connected ? AppColors.death : colors.background)
-                      .withAlpha(connected ? 41 : 255),
+                  color: (ready ? AppColors.kill : colors.background).withAlpha(
+                    ready ? 41 : 255,
+                  ),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: connected ? AppColors.death : colors.line,
+                    color: ready ? AppColors.kill : colors.line,
                   ),
                 ),
                 child: Icon(
-                  connected
-                      ? Icons.watch_rounded
-                      : Icons.watch_off_outlined,
-                  color: connected ? AppColors.death : colors.muted,
+                  ready ? Icons.hub_rounded : Icons.hub_outlined,
+                  color: ready ? AppColors.kill : colors.muted,
                 ),
               ),
               const SizedBox(width: 14),
@@ -144,18 +142,16 @@ class _ConnectionPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      connected
-                          ? '${state.device?.name ?? 'Wargame Watch'} 已连接'
-                          : '未连接手表',
+                      ready ? '通道已启用' : '配对通道',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      connected
-                          ? '信号 ${state.device?.rssi ?? 0} dBm · 电量 ${state.device?.batteryPercent ?? 0}%'
-                          : state.scanning
-                              ? '正在扫描附近的手表应用'
-                              : '扫描附近的手表应用',
+                      state.syncing
+                          ? '正在写入手表发送的数据'
+                          : ready
+                          ? '等待手表发送'
+                          : '启用后接收已配对手表的数据',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
@@ -168,34 +164,11 @@ class _ConnectionPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: busy ? null : onToggleConnection,
+                  onPressed: busy ? null : onToggleChannel,
                   icon: Icon(
-                    connected
-                        ? Icons.bluetooth_disabled_rounded
-                        : Icons.bluetooth_searching_rounded,
+                    ready ? Icons.link_off_rounded : Icons.link_rounded,
                   ),
-                  label: Text(
-                    connected
-                        ? '断开连接'
-                        : state.scanning
-                            ? '扫描中'
-                            : '扫描连接',
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 54,
-                height: 52,
-                child: IconButton.filledTonal(
-                  onPressed: connected && !busy ? onSyncNow : null,
-                  icon: state.syncing
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.sync_rounded),
+                  label: Text(ready ? '停用通道' : '启用通道'),
                 ),
               ),
             ],
@@ -206,16 +179,15 @@ class _ConnectionPanel extends StatelessWidget {
   }
 }
 
-class _WatchCard extends StatelessWidget {
-  const _WatchCard({required this.state});
+class _ChannelStatusCard extends StatelessWidget {
+  const _ChannelStatusCard({required this.state});
 
   final WatchSyncState state;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.wargameColors;
-    final connected = state.connected;
-    final device = state.device;
+    final ready = state.channelReady;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: AppTheme.panelDecoration(context),
@@ -225,7 +197,7 @@ class _WatchCard extends StatelessWidget {
             width: 8,
             height: 44,
             decoration: BoxDecoration(
-              color: connected ? AppColors.kill : AppColors.death,
+              color: ready ? AppColors.kill : AppColors.death,
               borderRadius: BorderRadius.circular(999),
             ),
           ),
@@ -234,24 +206,17 @@ class _WatchCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  device?.name ?? 'Wargame Tab Watch',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+                Text('诊断通道', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
                 Text(
-                  connected
-                      ? '已配对 · 可手动同步'
-                      : device == null
-                          ? '尚未扫描 · 点击上方连接'
-                          : '最近发现 · 点击上方连接',
+                  state.diagnosticMessage ?? (ready ? '配对通道运行中' : '等待手表发送'),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
             ),
           ),
           Icon(
-            connected ? Icons.link_rounded : Icons.bluetooth_rounded,
+            ready ? Icons.link_rounded : Icons.link_off_rounded,
             color: colors.muted,
           ),
         ],

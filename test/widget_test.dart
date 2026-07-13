@@ -71,15 +71,16 @@ void main() {
     expect(find.text('跟随系统'), findsOneWidget);
   });
 
-  testWidgets('device tab exposes mock connection controls', (tester) async {
+  testWidgets('device tab exposes paired channel controls', (tester) async {
     await tester.pumpWidget(const WargameClientApp());
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('设备'));
     await tester.pumpAndSettle();
 
-    expect(find.text('未连接手表'), findsOneWidget);
-    expect(find.text('扫描连接'), findsOneWidget);
+    expect(find.text('配对通道'), findsOneWidget);
+    expect(find.text('启用通道'), findsOneWidget);
+    expect(find.text('等待手表发送'), findsOneWidget);
     expect(find.text('同步摘要'), findsOneWidget);
   });
 
@@ -90,12 +91,10 @@ void main() {
     await tester.tap(find.text('设备'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('扫描连接'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.sync_rounded));
+    await tester.tap(find.text('启用通道'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Wargame Tab Watch 已连接'), findsOneWidget);
+    expect(find.text('通道已启用'), findsOneWidget);
     expect(find.text('2 场'), findsOneWidget);
   });
 }

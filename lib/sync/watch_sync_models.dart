@@ -1,21 +1,8 @@
 import '../models/wargame_session.dart';
 
-class WatchDevice {
-  const WatchDevice({
-    required this.deviceId,
-    required this.name,
-    required this.rssi,
-    required this.batteryPercent,
-  });
-
-  final String deviceId;
-  final String name;
-  final int rssi;
-  final int batteryPercent;
-}
-
 class WatchSyncPayload {
   const WatchSyncPayload({
+    this.messageId = '',
     required this.protocolVersion,
     required this.deviceId,
     required this.appVersion,
@@ -23,6 +10,7 @@ class WatchSyncPayload {
     required this.sessions,
   });
 
+  final String messageId;
   final int protocolVersion;
   final String deviceId;
   final String appVersion;
@@ -32,20 +20,18 @@ class WatchSyncPayload {
 
 class WatchSyncState {
   const WatchSyncState({
-    this.scanning = false,
-    this.connected = false,
+    this.channelReady = false,
     this.syncing = false,
-    this.device,
     this.lastSyncAt,
     this.lastImportedCount = 0,
     this.errorMessage,
+    this.diagnosticMessage,
   });
 
-  final bool scanning;
-  final bool connected;
+  final bool channelReady;
   final bool syncing;
-  final WatchDevice? device;
   final DateTime? lastSyncAt;
   final int lastImportedCount;
   final String? errorMessage;
+  final String? diagnosticMessage;
 }

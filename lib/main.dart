@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,9 +10,16 @@ import 'models/wargame_session.dart';
 import 'screens/device_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
-import 'sync/mock_watch_sync_transport.dart';
+import 'sync/android_interconnect_channel.dart';
+import 'sync/mock_watch_sync_channel.dart';
+import 'sync/watch_sync_channel.dart';
 import 'sync/watch_sync_service.dart';
 import 'theme/app_theme.dart';
+
+const _watchSyncChannelMode = String.fromEnvironment(
+  'WARGAME_SYNC_CHANNEL',
+  defaultValue: 'auto',
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,8 +33,21 @@ Future<void> main() async {
         seedSessions: mockFinishedSessions,
       ),
       settingsRepository: ClientSettingsRepository(store: store),
+      watchSyncChannel: _createWatchSyncChannel(),
     ),
   );
+}
+
+WatchSyncChannel _createWatchSyncChannel() {
+  if (_watchSyncChannelMode == 'mock') {
+    return MockWatchSyncChannel();
+  }
+
+  if (_watchSyncChannelMode == 'android' || !kDebugMode) {
+    return AndroidInterconnectChannel();
+  }
+
+  return MockWatchSyncChannel();
 }
 
 class WargameClientApp extends StatefulWidget {
@@ -34,10 +55,12 @@ class WargameClientApp extends StatefulWidget {
     super.key,
     this.sessionRepository,
     this.settingsRepository,
+    this.watchSyncChannel,
   });
 
   final SessionRepository? sessionRepository;
   final ClientSettingsRepository? settingsRepository;
+  final WatchSyncChannel? watchSyncChannel;
 
   @override
   State<WargameClientApp> createState() => _WargameClientAppState();
@@ -68,7 +91,7 @@ class _WargameClientAppState extends State<WargameClientApp> {
         widget.settingsRepository ??
         ClientSettingsRepository(store: _fallbackStore);
     _watchSyncService = WatchSyncService(
-      transport: MockWatchSyncTransport(),
+      channel: widget.watchSyncChannel ?? MockWatchSyncChannel(),
       sessionRepository: _sessionRepository,
       onSessionsChanged: _setSessions,
     );

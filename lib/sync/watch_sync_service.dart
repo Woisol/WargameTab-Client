@@ -1,139 +1,271 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/session_repository.dart';
 import '../models/wargame_session.dart';
+import 'interconnect_sync_codec.dart';
+import 'watch_sync_channel.dart';
 import 'watch_sync_models.dart';
-import 'watch_sync_transport.dart';
 
 class WatchSyncService extends ChangeNotifier {
   WatchSyncService({
-    required WatchSyncTransport transport,
+    required WatchSyncChannel channel,
+    InterconnectSyncCodec codec = const InterconnectSyncCodec(),
     required SessionRepository sessionRepository,
     required ValueChanged<List<WargameSession>> onSessionsChanged,
-  })  : _transport = transport,
-        _sessionRepository = sessionRepository,
-        _onSessionsChanged = onSessionsChanged;
+  }) : _channel = channel,
+       _codec = codec,
+       _sessionRepository = sessionRepository,
+       _onSessionsChanged = onSessionsChanged;
 
-  final WatchSyncTransport _transport;
+  final WatchSyncChannel _channel;
+  final InterconnectSyncCodec _codec;
   final SessionRepository _sessionRepository;
   final ValueChanged<List<WargameSession>> _onSessionsChanged;
 
   WatchSyncState _state = const WatchSyncState();
+  StreamSubscription<String>? _messageSubscription;
+  Future<void>? _startFuture;
+  Future<void> _messageQueue = Future<void>.value();
+  int _lifecycleToken = 0;
   bool _disposed = false;
 
   WatchSyncState get state => _state;
 
-  Future<void> scanAndConnect() async {
-    if (_state.scanning || _state.connected) {
+  Future<void> start() async {
+    if (_disposed || _state.channelReady) {
       return;
     }
+    final currentStart = _startFuture;
+    if (currentStart != null) {
+      return currentStart;
+    }
 
-    _setState(
-      WatchSyncState(
-        scanning: true,
-        device: _state.device,
-        lastSyncAt: _state.lastSyncAt,
-        lastImportedCount: _state.lastImportedCount,
-      ),
-    );
-
+    final token = ++_lifecycleToken;
+    final startFuture = _start(token);
+    _startFuture = startFuture;
     try {
-      final devices = await _transport.scan();
-      if (devices.isEmpty) {
-        _setState(
-          WatchSyncState(
-            device: _state.device,
-            lastSyncAt: _state.lastSyncAt,
-            lastImportedCount: _state.lastImportedCount,
-            errorMessage: '未发现手表应用',
-          ),
-        );
-        return;
+      await startFuture;
+    } finally {
+      if (identical(_startFuture, startFuture)) {
+        _startFuture = null;
       }
-
-      final device = await _transport.connect(devices.first.deviceId);
-      _setState(
-        WatchSyncState(
-          connected: true,
-          device: device,
-          lastSyncAt: _state.lastSyncAt,
-          lastImportedCount: _state.lastImportedCount,
-        ),
-      );
-    } catch (error) {
-      _setState(
-        WatchSyncState(
-          device: _state.device,
-          lastSyncAt: _state.lastSyncAt,
-          lastImportedCount: _state.lastImportedCount,
-          errorMessage: error.toString(),
-        ),
-      );
     }
   }
 
   Future<void> disconnect() async {
-    if (!_state.connected) {
+    final token = ++_lifecycleToken;
+    _startFuture = null;
+    _messageQueue = Future<void>.value();
+    await _messageSubscription?.cancel();
+    _messageSubscription = null;
+    await _channel.stop();
+    if (!_isCurrentToken(token)) {
       return;
     }
 
-    await _transport.disconnect();
     _setState(
       WatchSyncState(
-        device: _state.device,
+        channelReady: false,
+        syncing: false,
         lastSyncAt: _state.lastSyncAt,
         lastImportedCount: _state.lastImportedCount,
+        diagnosticMessage: _channel.state.diagnosticMessage,
       ),
     );
   }
 
-  Future<void> syncNow() async {
-    if (!_state.connected || _state.syncing) {
+  Future<void> _start(int token) async {
+    StreamSubscription<String>? subscription;
+    try {
+      subscription = _channel.messages.listen(
+        (raw) => _enqueueRawMessage(raw, token),
+        onError: (Object error) {
+          if (!_isCurrentToken(token)) {
+            return;
+          }
+
+          _setState(
+            WatchSyncState(
+              channelReady: _channel.state.available,
+              syncing: false,
+              lastSyncAt: _state.lastSyncAt,
+              lastImportedCount: _state.lastImportedCount,
+              errorMessage: error.toString(),
+              diagnosticMessage: _channel.state.diagnosticMessage,
+            ),
+          );
+        },
+      );
+      _messageSubscription = subscription;
+      await _channel.start();
+      if (!_isCurrentToken(token)) {
+        if (_startFuture == null && !_state.channelReady) {
+          await _channel.stop();
+        }
+        return;
+      }
+
+      _setState(
+        WatchSyncState(
+          channelReady: _channel.state.available,
+          syncing: false,
+          lastSyncAt: _state.lastSyncAt,
+          lastImportedCount: _state.lastImportedCount,
+          errorMessage: _channel.state.lastError,
+          diagnosticMessage: _channel.state.diagnosticMessage,
+        ),
+      );
+    } catch (error) {
+      if (!_isCurrentToken(token)) {
+        return;
+      }
+
+      await subscription?.cancel();
+      if (!_isCurrentToken(token)) {
+        return;
+      }
+      if (identical(_messageSubscription, subscription)) {
+        _messageSubscription = null;
+      }
+      _setState(
+        WatchSyncState(
+          channelReady: false,
+          syncing: false,
+          lastSyncAt: _state.lastSyncAt,
+          lastImportedCount: _state.lastImportedCount,
+          errorMessage: error.toString(),
+          diagnosticMessage: _channel.state.diagnosticMessage,
+        ),
+      );
+    }
+  }
+
+  void _enqueueRawMessage(String raw, int token) {
+    final next = _messageQueue.then((_) async {
+      if (!_isCurrentToken(token)) {
+        return;
+      }
+
+      await _handleRawMessage(raw, token);
+    });
+    _messageQueue = next.catchError((Object error) {
+      if (!_isCurrentToken(token)) {
+        return;
+      }
+
+      _setState(
+        WatchSyncState(
+          channelReady: _channel.state.available,
+          syncing: false,
+          lastSyncAt: _state.lastSyncAt,
+          lastImportedCount: _state.lastImportedCount,
+          errorMessage: error.toString(),
+          diagnosticMessage: _channel.state.diagnosticMessage,
+        ),
+      );
+    });
+  }
+
+  Future<void> _handleRawMessage(String raw, int token) async {
+    final payload = _codec.decodePush(raw);
+    if (payload == null) {
+      if (!_isCurrentToken(token)) {
+        return;
+      }
+
+      _setState(
+        WatchSyncState(
+          channelReady: _channel.state.available,
+          syncing: false,
+          lastSyncAt: _state.lastSyncAt,
+          lastImportedCount: _state.lastImportedCount,
+          errorMessage: '无法解析手表同步消息',
+          diagnosticMessage: _channel.state.diagnosticMessage,
+        ),
+      );
+      return;
+    }
+
+    if (!_isCurrentToken(token)) {
       return;
     }
 
     _setState(
       WatchSyncState(
-        connected: true,
+        channelReady: _channel.state.available,
         syncing: true,
-        device: _state.device,
         lastSyncAt: _state.lastSyncAt,
         lastImportedCount: _state.lastImportedCount,
+        diagnosticMessage: _channel.state.diagnosticMessage,
       ),
     );
 
     try {
-      final payload = await _transport.pullSessions();
+      final existingIds = {
+        for (final session in await _sessionRepository.loadSessions())
+          if (session.sessionId.isNotEmpty) session.sessionId,
+      };
+      if (!_isCurrentToken(token)) {
+        return;
+      }
+
+      final importedIds = {
+        for (final session in payload.sessions)
+          if (session.sessionId.isNotEmpty &&
+              !existingIds.contains(session.sessionId))
+            session.sessionId,
+      };
       final sessions = await _sessionRepository.upsertSyncedSessions(
         payload.sessions,
       );
-      await _transport.ackSessions(
-        payload.sessions.map((session) => session.sessionId).toList(),
-      );
-      if (_disposed) {
+      if (!_isCurrentToken(token)) {
         return;
       }
 
       _onSessionsChanged(sessions);
+      await _channel.send(
+        _codec.encodeAck(
+          ackMessageId: payload.messageId,
+          sessionIds: payload.sessions
+              .map((session) => session.sessionId)
+              .toList(),
+        ),
+      );
+      if (!_isCurrentToken(token)) {
+        return;
+      }
+
       _setState(
         WatchSyncState(
-          connected: true,
-          device: _state.device,
+          channelReady: _channel.state.available,
+          syncing: false,
           lastSyncAt: DateTime.fromMillisecondsSinceEpoch(payload.lastSyncAt),
-          lastImportedCount: payload.sessions.length,
+          lastImportedCount: importedIds.length,
+          diagnosticMessage: _channel.state.diagnosticMessage,
         ),
       );
     } catch (error) {
+      if (!_isCurrentToken(token)) {
+        return;
+      }
+
       _setState(
         WatchSyncState(
-          connected: true,
-          device: _state.device,
+          channelReady: _channel.state.available,
+          syncing: false,
           lastSyncAt: _state.lastSyncAt,
           lastImportedCount: _state.lastImportedCount,
           errorMessage: error.toString(),
+          diagnosticMessage: _channel.state.diagnosticMessage,
         ),
       );
     }
+  }
+
+  bool _isCurrentToken(int token) {
+    return !_disposed && _lifecycleToken == token;
   }
 
   void _setState(WatchSyncState value) {
@@ -147,7 +279,12 @@ class WatchSyncService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _lifecycleToken += 1;
     _disposed = true;
+    _startFuture = null;
+    _messageQueue = Future<void>.value();
+    unawaited(_messageSubscription?.cancel());
+    unawaited(_channel.stop());
     super.dispose();
   }
 }
