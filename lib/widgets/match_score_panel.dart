@@ -100,35 +100,39 @@ class _KdCore extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: session.kdRatio),
-          duration: const Duration(milliseconds: 720),
-          curve: Curves.easeOutCubic,
-          builder: (context, animatedValue, child) {
-            return Text(
-              animatedValue.toStringAsFixed(2),
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                color: context.wargameColors.text,
-                fontSize: large ? 72 : 58,
-                fontWeight: FontWeight.w900,
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        ClipPath(
-          clipper: const _KdMarkerClipper(),
-          child: Container(
-            height: large ? 14 : 10,
-            width: large ? 104 : 82,
-            color: context.wargameColors.line,
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: session.kdRatio),
+            duration: const Duration(milliseconds: 720),
+            curve: Curves.easeOutCubic,
+            builder: (context, animatedValue, child) {
+              return Text(
+                animatedValue.toStringAsFixed(2),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: context.wargameColors.text,
+                  fontSize: large ? 72 : 58,
+                  fontWeight: FontWeight.w900,
+                ),
+              );
+            },
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          ClipPath(
+            clipper: const _KdMarkerClipper(),
+            child: Container(
+              height: large ? 14 : 10,
+              width: large ? 104 : 82,
+              color: context.wargameColors.line,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

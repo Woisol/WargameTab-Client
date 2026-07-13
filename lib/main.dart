@@ -1,28 +1,110 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'data/client_settings_repository.dart';
+import 'data/key_value_store.dart';
 import 'data/mock_sessions.dart';
+import 'data/session_repository.dart';
+import 'models/wargame_session.dart';
+import 'screens/device_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
+import 'sync/mock_watch_sync_transport.dart';
+import 'sync/watch_sync_service.dart';
 import 'theme/app_theme.dart';
 
-void main() {
-  runApp(const WargameClientApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final preferences = await SharedPreferences.getInstance();
+  final store = SharedPreferencesKeyValueStore(preferences);
+
+  runApp(
+    WargameClientApp(
+      sessionRepository: SessionRepository(
+        store: store,
+        seedSessions: mockFinishedSessions,
+      ),
+      settingsRepository: ClientSettingsRepository(store: store),
+    ),
+  );
 }
 
 class WargameClientApp extends StatefulWidget {
-  const WargameClientApp({super.key});
+  const WargameClientApp({
+    super.key,
+    this.sessionRepository,
+    this.settingsRepository,
+  });
+
+  final SessionRepository? sessionRepository;
+  final ClientSettingsRepository? settingsRepository;
 
   @override
   State<WargameClientApp> createState() => _WargameClientAppState();
 }
 
 class _WargameClientAppState extends State<WargameClientApp> {
+  late final KeyValueStore _fallbackStore;
+  late final SessionRepository _sessionRepository;
+  late final ClientSettingsRepository _settingsRepository;
+  late final WatchSyncService _watchSyncService;
+
   ThemeMode _themeMode = ThemeMode.dark;
   int _currentIndex = 0;
+  List<WargameSession> _sessions = const [];
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fallbackStore = MemoryKeyValueStore();
+    _sessionRepository =
+        widget.sessionRepository ??
+        SessionRepository(
+          store: _fallbackStore,
+          seedSessions: mockFinishedSessions,
+        );
+    _settingsRepository =
+        widget.settingsRepository ??
+        ClientSettingsRepository(store: _fallbackStore);
+    _watchSyncService = WatchSyncService(
+      transport: MockWatchSyncTransport(),
+      sessionRepository: _sessionRepository,
+      onSessionsChanged: _setSessions,
+    );
+    _loadInitialState();
+  }
+
+  Future<void> _loadInitialState() async {
+    final themeMode = await _settingsRepository.loadThemeMode();
+    final sessions = await _sessionRepository.loadSessions();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _themeMode = themeMode;
+      _sessions = sessions;
+      _loaded = true;
+    });
+  }
+
+  @override
+  void dispose() {
+    _watchSyncService.dispose();
+    super.dispose();
+  }
 
   void _setThemeMode(ThemeMode mode) {
     setState(() {
       _themeMode = mode;
+    });
+    _settingsRepository.saveThemeMode(mode);
+  }
+
+  void _setSessions(List<WargameSession> sessions) {
+    setState(() {
+      _sessions = sessions;
     });
   }
 
@@ -35,16 +117,19 @@ class _WargameClientAppState extends State<WargameClientApp> {
       darkTheme: AppTheme.dark,
       themeMode: _themeMode,
       home: Scaffold(
-        body: IndexedStack(
-          index: _currentIndex,
-          children: [
-            HomeScreen(sessions: mockFinishedSessions),
-            SettingsScreen(
-              themeMode: _themeMode,
-              onThemeModeChanged: _setThemeMode,
-            ),
-          ],
-        ),
+        body: _loaded
+            ? IndexedStack(
+                index: _currentIndex,
+                children: [
+                  HomeScreen(sessions: _sessions),
+                  DeviceScreen(syncService: _watchSyncService),
+                  SettingsScreen(
+                    themeMode: _themeMode,
+                    onThemeModeChanged: _setThemeMode,
+                  ),
+                ],
+              )
+            : const Center(child: CircularProgressIndicator()),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _currentIndex,
           onDestinationSelected: (index) {
@@ -57,6 +142,11 @@ class _WargameClientAppState extends State<WargameClientApp> {
               icon: Icon(Icons.space_dashboard_outlined),
               selectedIcon: Icon(Icons.space_dashboard_rounded),
               label: '首页',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.watch_outlined),
+              selectedIcon: Icon(Icons.watch_rounded),
+              label: '设备',
             ),
             NavigationDestination(
               icon: Icon(Icons.settings_outlined),

@@ -35,7 +35,9 @@ class HomeScreen extends StatelessWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               sliver: SliverToBoxAdapter(
-                child: CareerDonutPanel(stats: CareerStats.fromSessions(sessions)),
+                child: CareerDonutPanel(
+                  stats: CareerStats.fromSessions(sessions),
+                ),
               ),
             ),
             SliverPadding(
@@ -226,7 +228,7 @@ class _HistoryPreviewPanel extends StatelessWidget {
               final session = sessions[index];
               return MatchRecordCard(
                 session: session,
-                dense: true,
+                dense: false,
                 index: index,
                 onTap: () => onOpenDetail(session),
               );

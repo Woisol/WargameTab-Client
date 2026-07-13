@@ -76,8 +76,7 @@ class WargameColors extends ThemeExtension<WargameColors> {
 }
 
 extension WargameTheme on BuildContext {
-  WargameColors get wargameColors =>
-      Theme.of(this).extension<WargameColors>()!;
+  WargameColors get wargameColors => Theme.of(this).extension<WargameColors>()!;
 }
 
 class AppTheme {

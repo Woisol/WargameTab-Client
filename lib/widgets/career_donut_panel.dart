@@ -49,12 +49,14 @@ class CareerDonutPanel extends StatelessWidget {
                       children: [
                         Text(
                           stats.kdLabel,
-                          style: Theme.of(context)
-                              .textTheme
-                              .displaySmall
-                              ?.copyWith(fontSize: 42),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.displaySmall?.copyWith(fontSize: 42),
                         ),
-                        Text('KD', style: Theme.of(context).textTheme.bodyMedium),
+                        Text(
+                          'KD',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                       ],
                     ),
                   ],
@@ -129,17 +131,17 @@ class _SideValue extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w800,
-              ),
+            color: color,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
           value,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
-              ),
+            color: color,
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ],
     );
@@ -175,9 +177,9 @@ class _DetailMetric extends StatelessWidget {
           Text(
             value,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
         ],
       ),

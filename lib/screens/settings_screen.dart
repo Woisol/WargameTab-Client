@@ -22,14 +22,14 @@ class SettingsScreen extends StatelessWidget {
         children: [
           Text('设置', style: Theme.of(context).textTheme.displaySmall),
           const SizedBox(height: 6),
-          Text(
-            '先把界面风格确定下来',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          Text('先把界面风格确定下来', style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 18),
           Container(
             padding: const EdgeInsets.all(18),
-            decoration: AppTheme.panelDecoration(context, color: colors.surfaceHigh),
+            decoration: AppTheme.panelDecoration(
+              context,
+              color: colors.surfaceHigh,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -1,6 +1,6 @@
 import 'package:client/main.dart';
 import 'package:client/widgets/match_record_card.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -16,6 +16,18 @@ void main() {
     expect(find.text('总时长'), findsOneWidget);
     expect(find.text('平均击杀'), findsOneWidget);
     expect(find.text('最近一场'), findsOneWidget);
+
+    final outerScrollable = find.byWidgetPredicate(
+      (widget) => widget is Scrollable && widget.physics is BouncingScrollPhysics,
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('历史对局'),
+      240,
+      scrollable: outerScrollable,
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('历史对局'), findsOneWidget);
     expect(find.byType(MatchRecordCard), findsNWidgets(4));
 
@@ -29,11 +41,16 @@ void main() {
     await tester.pumpWidget(const WargameClientApp());
     await tester.pumpAndSettle();
 
+    final outerScrollable = find.byWidgetPredicate(
+      (widget) => widget is Scrollable && widget.physics is BouncingScrollPhysics,
+    );
+
     await tester.scrollUntilVisible(
       find.text('展示更多'),
       240,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: outerScrollable,
     );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('展示更多'));
     await tester.pumpAndSettle();
 
@@ -52,5 +69,33 @@ void main() {
     expect(find.text('深色'), findsOneWidget);
     expect(find.text('浅色'), findsOneWidget);
     expect(find.text('跟随系统'), findsOneWidget);
+  });
+
+  testWidgets('device tab exposes mock connection controls', (tester) async {
+    await tester.pumpWidget(const WargameClientApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('设备'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('未连接手表'), findsOneWidget);
+    expect(find.text('扫描连接'), findsOneWidget);
+    expect(find.text('同步摘要'), findsOneWidget);
+  });
+
+  testWidgets('device tab imports mock synced sessions', (tester) async {
+    await tester.pumpWidget(const WargameClientApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('设备'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('扫描连接'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.sync_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wargame Tab Watch 已连接'), findsOneWidget);
+    expect(find.text('2 场'), findsOneWidget);
   });
 }
