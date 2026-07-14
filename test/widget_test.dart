@@ -4,6 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('release channel modes do not seed mock sessions', () {
+    expect(seedSessionsForChannelMode('android', isDebug: false), isEmpty);
+    expect(seedSessionsForChannelMode('auto', isDebug: false), isEmpty);
+    expect(
+      seedSessionsForChannelMode('mock', isDebug: false),
+      isNotEmpty,
+    );
+    expect(
+      seedSessionsForChannelMode('auto', isDebug: true),
+      isNotEmpty,
+    );
+  });
+
   testWidgets('home renders mock career summary and latest match', (
     tester,
   ) async {
@@ -71,27 +84,28 @@ void main() {
     expect(find.text('跟随系统'), findsOneWidget);
   });
 
-  testWidgets('device tab exposes paired channel controls', (tester) async {
+  testWidgets('device tab exposes the automatically started paired channel', (
+    tester,
+  ) async {
     await tester.pumpWidget(const WargameClientApp());
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('设备'));
     await tester.pumpAndSettle();
 
-    expect(find.text('配对通道'), findsOneWidget);
-    expect(find.text('启用通道'), findsOneWidget);
+    expect(find.text('通道已启用'), findsOneWidget);
+    expect(find.text('停用通道'), findsOneWidget);
     expect(find.text('等待手表发送'), findsOneWidget);
     expect(find.text('同步摘要'), findsOneWidget);
   });
 
-  testWidgets('device tab imports mock synced sessions', (tester) async {
+  testWidgets('automatically started mock channel imports synced sessions', (
+    tester,
+  ) async {
     await tester.pumpWidget(const WargameClientApp());
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('设备'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('启用通道'));
     await tester.pumpAndSettle();
 
     expect(find.text('通道已启用'), findsOneWidget);

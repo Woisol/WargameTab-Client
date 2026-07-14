@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,17 +23,28 @@ const _watchSyncChannelMode = String.fromEnvironment(
   defaultValue: 'auto',
 );
 
+List<WargameSession> seedSessionsForChannelMode(
+  String mode, {
+  required bool isDebug,
+}) {
+  final useMockData = mode == 'mock' || (mode == 'auto' && isDebug);
+  return useMockData ? mockFinishedSessions : const [];
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final preferences = await SharedPreferences.getInstance();
   final store = SharedPreferencesKeyValueStore(preferences);
 
   runApp(
-    WargameClientApp(
-      sessionRepository: SessionRepository(
-        store: store,
-        seedSessions: mockFinishedSessions,
-      ),
+      WargameClientApp(
+        sessionRepository: SessionRepository(
+          store: store,
+          seedSessions: seedSessionsForChannelMode(
+            _watchSyncChannelMode,
+            isDebug: kDebugMode,
+          ),
+        ),
       settingsRepository: ClientSettingsRepository(store: store),
       watchSyncChannel: _createWatchSyncChannel(),
     ),
@@ -85,16 +98,20 @@ class _WargameClientAppState extends State<WargameClientApp> {
         widget.sessionRepository ??
         SessionRepository(
           store: _fallbackStore,
-          seedSessions: mockFinishedSessions,
+          seedSessions: seedSessionsForChannelMode(
+            _watchSyncChannelMode,
+            isDebug: kDebugMode,
+          ),
         );
     _settingsRepository =
         widget.settingsRepository ??
         ClientSettingsRepository(store: _fallbackStore);
     _watchSyncService = WatchSyncService(
-      channel: widget.watchSyncChannel ?? MockWatchSyncChannel(),
+      channel: widget.watchSyncChannel ?? _createWatchSyncChannel(),
       sessionRepository: _sessionRepository,
       onSessionsChanged: _setSessions,
     );
+    unawaited(_watchSyncService.start());
     _loadInitialState();
   }
 
