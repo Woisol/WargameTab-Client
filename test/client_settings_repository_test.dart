@@ -28,4 +28,14 @@ void main() {
 
     expect(await repository.loadThemeMode(), ThemeMode.dark);
   });
+
+  test('ClientSettingsRepository persists interconnect debug setting', () async {
+    final store = MemoryKeyValueStore();
+    final repository = ClientSettingsRepository(store: store);
+
+    expect(await repository.loadInterconnectDebugEnabled(), isFalse);
+    await repository.saveInterconnectDebugEnabled(true);
+
+    expect(await repository.loadInterconnectDebugEnabled(), isTrue);
+  });
 }

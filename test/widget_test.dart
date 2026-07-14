@@ -82,6 +82,7 @@ void main() {
     expect(find.text('深色'), findsOneWidget);
     expect(find.text('浅色'), findsOneWidget);
     expect(find.text('跟随系统'), findsOneWidget);
+    expect(find.text('互联调试'), findsOneWidget);
   });
 
   testWidgets('device tab exposes the automatically started paired channel', (

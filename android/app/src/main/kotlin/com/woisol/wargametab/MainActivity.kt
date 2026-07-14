@@ -1,5 +1,6 @@
 package com.woisol.wargametab
 
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -57,6 +58,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun startInterconnect(result: MethodChannel.Result) {
+        Log.d(TAG, "start requested")
         if (channelStarted) {
             result.success(readyState("Android 互联通道已启用，等待手表发送数据。"))
             return
@@ -64,8 +66,10 @@ class MainActivity : FlutterActivity() {
 
         nodeApi.getConnectedNodes().complete(
             onSuccess = { nodes ->
+                Log.d(TAG, "connected nodes=${nodes.size}")
                 val node = nodes.firstOrNull()
                 if (node == null || node.id.isBlank()) {
+                    Log.w(TAG, "no connected node")
                     result.success(
                         unavailableState(
                             message = "未发现已连接的小米穿戴设备。",
@@ -78,6 +82,7 @@ class MainActivity : FlutterActivity() {
                 requestDeviceManagerPermission(node, result)
             },
             onFailure = { error ->
+                Log.e(TAG, "node query failed", error)
                 result.error(
                     "interconnect_node_query_failed",
                     error.localizedMessage ?: error.javaClass.name,
@@ -88,11 +93,14 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun requestDeviceManagerPermission(node: Node, result: MethodChannel.Result) {
+        Log.d(TAG, "requesting device manager permission node=${node.id}")
         authApi.requestPermission(node.id, Permission.DEVICE_MANAGER).complete(
             onSuccess = {
+                Log.d(TAG, "device manager permission granted")
                 registerMessageListener(node, result)
             },
             onFailure = { error ->
+                Log.e(TAG, "device manager permission failed", error)
                 result.error(
                     "interconnect_permission_failed",
                     error.localizedMessage ?: error.javaClass.name,
@@ -105,6 +113,7 @@ class MainActivity : FlutterActivity() {
     private fun registerMessageListener(node: Node, result: MethodChannel.Result) {
         val listener = OnMessageReceivedListener { _, payload ->
             val raw = String(payload, UTF8)
+            Log.d(TAG, "message received bytes=${payload.size}")
             runOnUiThread {
                 interconnectChannel.invokeMethod("onMessage", raw)
             }
@@ -114,12 +123,14 @@ class MainActivity : FlutterActivity() {
         messageApi.addListener(node.id, listener).complete(
             onSuccess = {
                 channelStarted = true
+                Log.d(TAG, "message listener registered node=${node.id}")
                 val nodeLabel = node.name?.ifBlank { node.id } ?: node.id
                 result.success(
                     readyState("Android 互联通道已启用：$nodeLabel"),
                 )
             },
             onFailure = { error ->
+                Log.e(TAG, "message listener registration failed", error)
                 messageListener = null
                 connectedNodeId = null
                 channelStarted = false
@@ -133,6 +144,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun stopInterconnect(result: MethodChannel.Result) {
+        Log.d(TAG, "stop requested")
         if (!channelStarted && messageListener == null) {
             result.success(stoppedState("Android 互联通道已停用"))
             return
@@ -148,12 +160,14 @@ class MainActivity : FlutterActivity() {
 
         messageApi.removeListener(nodeId).complete(
             onSuccess = {
+                Log.d(TAG, "message listener removed")
                 messageListener = null
                 connectedNodeId = null
                 channelStarted = false
                 result.success(stoppedState("Android 互联通道已停用"))
             },
             onFailure = { error ->
+                Log.e(TAG, "message listener removal failed", error)
                 messageListener = null
                 connectedNodeId = null
                 channelStarted = false
@@ -167,17 +181,21 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun sendInterconnectMessage(raw: String, result: MethodChannel.Result) {
+        Log.d(TAG, "sending message bytes=${raw.toByteArray(UTF8).size}")
         val nodeId = connectedNodeId
         if (nodeId == null) {
+            Log.w(TAG, "send rejected: no connected node")
             result.error("interconnect_not_started", "Android 互联通道尚未启用。", null)
             return
         }
 
         messageApi.sendMessage(nodeId, raw.toByteArray(UTF8)).complete(
             onSuccess = {
+                Log.d(TAG, "message sent")
                 result.success(null)
             },
             onFailure = { error ->
+                Log.e(TAG, "message send failed", error)
                 result.error(
                     "interconnect_send_failed",
                     error.localizedMessage ?: error.javaClass.name,
@@ -262,6 +280,7 @@ class MainActivity : FlutterActivity() {
     )
 
     private companion object {
+        const val TAG = "WargameTabInterconnect"
         const val CHANNEL = "com.woisol.wargametab/interconnect"
         val UTF8: Charset = Charsets.UTF_8
     }

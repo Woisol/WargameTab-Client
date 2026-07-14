@@ -6,6 +6,8 @@ class ClientSettingsRepository {
   const ClientSettingsRepository({required this.store});
 
   static const themeModeKey = 'wargame_client_theme_mode';
+  static const interconnectDebugEnabledKey =
+      'wargame_client_interconnect_debug';
 
   final KeyValueStore store;
 
@@ -22,5 +24,13 @@ class ClientSettingsRepository {
 
   Future<void> saveThemeMode(ThemeMode mode) async {
     await store.setString(themeModeKey, mode.name);
+  }
+
+  Future<bool> loadInterconnectDebugEnabled() async {
+    return await store.getString(interconnectDebugEnabledKey) == 'true';
+  }
+
+  Future<void> saveInterconnectDebugEnabled(bool enabled) async {
+    await store.setString(interconnectDebugEnabledKey, enabled.toString());
   }
 }

@@ -15,6 +15,7 @@ import 'screens/settings_screen.dart';
 import 'sync/android_interconnect_channel.dart';
 import 'sync/mock_watch_sync_channel.dart';
 import 'sync/watch_sync_channel.dart';
+import 'sync/watch_sync_logger.dart';
 import 'sync/watch_sync_service.dart';
 import 'theme/app_theme.dart';
 
@@ -83,12 +84,15 @@ class _WargameClientAppState extends State<WargameClientApp> {
   late final KeyValueStore _fallbackStore;
   late final SessionRepository _sessionRepository;
   late final ClientSettingsRepository _settingsRepository;
+  late final WatchSyncLogger _watchSyncLogger;
   late final WatchSyncService _watchSyncService;
 
   ThemeMode _themeMode = ThemeMode.dark;
+  bool _interconnectDebugEnabled = false;
   int _currentIndex = 0;
   List<WargameSession> _sessions = const [];
   bool _loaded = false;
+  final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
@@ -106,13 +110,25 @@ class _WargameClientAppState extends State<WargameClientApp> {
     _settingsRepository =
         widget.settingsRepository ??
         ClientSettingsRepository(store: _fallbackStore);
+    _watchSyncLogger = WatchSyncLogger(
+      onToast: (message) {
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text(message),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      },
+    );
     _watchSyncService = WatchSyncService(
       channel: widget.watchSyncChannel ?? _createWatchSyncChannel(),
+      logger: _watchSyncLogger,
       sessionRepository: _sessionRepository,
       onSessionsChanged: _setSessions,
     );
     unawaited(_watchSyncService.start());
     _loadInitialState();
+    _loadInterconnectDebugSetting();
   }
 
   Future<void> _loadInitialState() async {
@@ -129,6 +145,18 @@ class _WargameClientAppState extends State<WargameClientApp> {
     });
   }
 
+  Future<void> _loadInterconnectDebugSetting() async {
+    final enabled = await _settingsRepository.loadInterconnectDebugEnabled();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _interconnectDebugEnabled = enabled;
+    });
+    _watchSyncLogger.setDebug(enabled);
+  }
+
   @override
   void dispose() {
     _watchSyncService.dispose();
@@ -142,6 +170,14 @@ class _WargameClientAppState extends State<WargameClientApp> {
     _settingsRepository.saveThemeMode(mode);
   }
 
+  void _setInterconnectDebugEnabled(bool enabled) {
+    setState(() {
+      _interconnectDebugEnabled = enabled;
+    });
+    _watchSyncLogger.setDebug(enabled);
+    _settingsRepository.saveInterconnectDebugEnabled(enabled);
+  }
+
   void _setSessions(List<WargameSession> sessions) {
     setState(() {
       _sessions = sessions;
@@ -152,6 +188,7 @@ class _WargameClientAppState extends State<WargameClientApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Wargame Tab',
+      scaffoldMessengerKey: _scaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
@@ -166,6 +203,8 @@ class _WargameClientAppState extends State<WargameClientApp> {
                   SettingsScreen(
                     themeMode: _themeMode,
                     onThemeModeChanged: _setThemeMode,
+                    interconnectDebugEnabled: _interconnectDebugEnabled,
+                    onInterconnectDebugChanged: _setInterconnectDebugEnabled,
                   ),
                 ],
               )

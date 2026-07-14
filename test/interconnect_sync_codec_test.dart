@@ -64,7 +64,7 @@ void main() {
         'messageId': 'sync_created_at',
         'deviceId': 'watch_a',
         'createdAt': 1752058000000,
-        'sessions': const [],
+        'sessions': [_validSessionJson()],
       }),
     );
 
@@ -91,6 +91,35 @@ void main() {
           'protocolVersion': 1,
           'messageId': '',
           'sessions': const [],
+        }),
+      ),
+      isNull,
+    );
+    expect(
+      codec.decodePush(
+        jsonEncode({
+          'type': 'wargame.sessions.push',
+          'protocolVersion': 1,
+          'messageId': 'sync_empty',
+          'sessions': const [],
+        }),
+      ),
+      isNull,
+    );
+    expect(
+      codec.decodePush(
+        jsonEncode({
+          'type': 'wargame.sessions.push',
+          'protocolVersion': 1,
+          'messageId': 'sync_ongoing',
+          'sessions': [
+            {
+              'sessionId': 'ongoing',
+              'status': 'ongoing',
+              'summary': {'kills': 1, 'deaths': 0},
+              'events': const [],
+            },
+          ],
         }),
       ),
       isNull,
@@ -139,7 +168,7 @@ void main() {
         'type': 'wargame.sessions.push',
         'protocolVersion': 1,
         'messageId': 'sync_a',
-        'sessions': const [],
+        'sessions': [_validSessionJson()],
       }),
     );
     final raw = codec.encodeAck(
@@ -156,4 +185,15 @@ void main() {
     expect(ack['sessionIds'], ['session_a', 'session_b']);
     expect(ack['savedAt'], isA<int>());
   });
+}
+
+Map<String, dynamic> _validSessionJson() {
+  return {
+    'sessionId': 'session_codec',
+    'startTime': 1752057600000,
+    'endTime': 1752057900000,
+    'status': 'finished',
+    'summary': {'kills': 1, 'deaths': 0},
+    'events': const [],
+  };
 }

@@ -6,21 +6,25 @@ import '../data/session_repository.dart';
 import '../models/wargame_session.dart';
 import 'interconnect_sync_codec.dart';
 import 'watch_sync_channel.dart';
+import 'watch_sync_logger.dart';
 import 'watch_sync_models.dart';
 
 class WatchSyncService extends ChangeNotifier {
   WatchSyncService({
     required WatchSyncChannel channel,
     InterconnectSyncCodec codec = const InterconnectSyncCodec(),
+    WatchSyncLogger? logger,
     required SessionRepository sessionRepository,
     required ValueChanged<List<WargameSession>> onSessionsChanged,
   }) : _channel = channel,
        _codec = codec,
+       _logger = logger ?? WatchSyncLogger(),
        _sessionRepository = sessionRepository,
        _onSessionsChanged = onSessionsChanged;
 
   final WatchSyncChannel _channel;
   final InterconnectSyncCodec _codec;
+  final WatchSyncLogger _logger;
   final SessionRepository _sessionRepository;
   final ValueChanged<List<WargameSession>> _onSessionsChanged;
 
@@ -35,6 +39,7 @@ class WatchSyncService extends ChangeNotifier {
 
   Future<void> start() async {
     if (_disposed || _state.channelReady) {
+      _logger.log('start skipped: disposed or already ready');
       return;
     }
     final currentStart = _startFuture;
@@ -43,6 +48,7 @@ class WatchSyncService extends ChangeNotifier {
     }
 
     final token = ++_lifecycleToken;
+    _logger.log('start requested', toast: true);
     final startFuture = _start(token);
     _startFuture = startFuture;
     try {
@@ -80,7 +86,10 @@ class WatchSyncService extends ChangeNotifier {
     StreamSubscription<String>? subscription;
     try {
       subscription = _channel.messages.listen(
-        (raw) => _enqueueRawMessage(raw, token),
+        (raw) {
+          _logger.log('message received', toast: true);
+          _enqueueRawMessage(raw, token);
+        },
         onError: (Object error) {
           if (!_isCurrentToken(token)) {
             return;
@@ -96,10 +105,21 @@ class WatchSyncService extends ChangeNotifier {
               diagnosticMessage: _channel.state.diagnosticMessage,
             ),
           );
+          _logger.log('channel error: $error', toast: true);
         },
       );
       _messageSubscription = subscription;
       await _channel.start();
+      _logger.log(
+        'channel started: available=${_channel.state.available}',
+        toast: true,
+      );
+      if (_channel.state.lastError != null) {
+        _logger.log(
+          'channel reported error: ${_channel.state.lastError}',
+          toast: true,
+        );
+      }
       if (!_isCurrentToken(token)) {
         if (_startFuture == null && !_state.channelReady) {
           await _channel.stop();
@@ -118,6 +138,7 @@ class WatchSyncService extends ChangeNotifier {
         ),
       );
     } catch (error) {
+      _logger.log('channel start failed: $error', toast: true);
       if (!_isCurrentToken(token)) {
         return;
       }
@@ -143,6 +164,7 @@ class WatchSyncService extends ChangeNotifier {
   }
 
   void _enqueueRawMessage(String raw, int token) {
+    _logger.log('queue message bytes=${raw.length}');
     final next = _messageQueue.then((_) async {
       if (!_isCurrentToken(token)) {
         return;
@@ -165,10 +187,12 @@ class WatchSyncService extends ChangeNotifier {
           diagnosticMessage: _channel.state.diagnosticMessage,
         ),
       );
+      _logger.log('message queue failed: $error', toast: true);
     });
   }
 
   Future<void> _handleRawMessage(String raw, int token) async {
+    _logger.log('decode push bytes=${raw.length}');
     final payload = _codec.decodePush(raw);
     if (payload == null) {
       if (!_isCurrentToken(token)) {
@@ -185,6 +209,7 @@ class WatchSyncService extends ChangeNotifier {
           diagnosticMessage: _channel.state.diagnosticMessage,
         ),
       );
+      _logger.log('push rejected by protocol codec', toast: true);
       return;
     }
 
@@ -203,6 +228,10 @@ class WatchSyncService extends ChangeNotifier {
     );
 
     try {
+      _logger.log(
+        'push accepted id=${payload.messageId} sessions=${payload.sessions.length}',
+        toast: true,
+      );
       final existingIds = {
         for (final session in await _sessionRepository.loadSessions())
           if (session.sessionId.isNotEmpty) session.sessionId,
@@ -225,6 +254,7 @@ class WatchSyncService extends ChangeNotifier {
       }
 
       _onSessionsChanged(sessions);
+      _logger.log('sessions persisted new=${importedIds.length}');
       await _channel.send(
         _codec.encodeAck(
           ackMessageId: payload.messageId,
@@ -233,6 +263,7 @@ class WatchSyncService extends ChangeNotifier {
               .toList(),
         ),
       );
+      _logger.log('ack sent id=${payload.messageId}', toast: true);
       if (!_isCurrentToken(token)) {
         return;
       }
@@ -247,6 +278,7 @@ class WatchSyncService extends ChangeNotifier {
         ),
       );
     } catch (error) {
+      _logger.log('push handling failed: $error', toast: true);
       if (!_isCurrentToken(token)) {
         return;
       }

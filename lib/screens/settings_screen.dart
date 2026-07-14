@@ -7,10 +7,14 @@ class SettingsScreen extends StatelessWidget {
     super.key,
     required this.themeMode,
     required this.onThemeModeChanged,
+    required this.interconnectDebugEnabled,
+    required this.onInterconnectDebugChanged,
   });
 
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
+  final bool interconnectDebugEnabled;
+  final ValueChanged<bool> onInterconnectDebugChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +67,14 @@ class SettingsScreen extends StatelessWidget {
                   onSelectionChanged: (selection) {
                     onThemeModeChanged(selection.first);
                   },
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('互联调试'),
+                  subtitle: const Text('写入 logcat，并在标记为 Toast 的节点显示提示。'),
+                  value: interconnectDebugEnabled,
+                  onChanged: onInterconnectDebugChanged,
                 ),
               ],
             ),

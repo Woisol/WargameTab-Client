@@ -34,14 +34,14 @@ class InterconnectSyncCodec {
 
       final sessions = <WargameSession>[];
       for (final item in sessionsJson) {
-        if (item is! Map) {
+        if (item is! Map || item['status'] != 'finished') {
           continue;
         }
 
         final session = WargameSession.fromJson(
           Map<String, dynamic>.from(item),
         );
-        if (session.sessionId.isNotEmpty) {
+        if (session.sessionId.isNotEmpty && session.status == 'finished') {
           sessions.add(session);
         }
       }
@@ -51,6 +51,10 @@ class InterconnectSyncCodec {
         syncTime = lastSyncAt.toInt();
       } else if (createdAt is num) {
         syncTime = createdAt.toInt();
+      }
+
+      if (sessions.isEmpty) {
+        return null;
       }
 
       return WatchSyncPayload(
