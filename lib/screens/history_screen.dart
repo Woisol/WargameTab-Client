@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../models/wargame_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/match_record_card.dart';
@@ -39,18 +40,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final orderedSessions = [..._sessions]
       ..sort((a, b) => b.startTime.compareTo(a.startTime));
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('全部对局'),
+        title: Text(l10n.allMatches),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Center(
               child: Text(
-                '${orderedSessions.length} 场',
+                l10n.matchCount(orderedSessions.length),
                 style: Theme.of(
                   context,
                 ).textTheme.labelLarge?.copyWith(color: AppColors.death),

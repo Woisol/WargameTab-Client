@@ -8,6 +8,8 @@ import 'data/client_settings_repository.dart';
 import 'data/key_value_store.dart';
 import 'data/mock_sessions.dart';
 import 'data/session_repository.dart';
+import 'l10n/generated/app_localizations.dart';
+import 'l10n/sync_message_localizer.dart';
 import 'models/wargame_session.dart';
 import 'screens/device_screen.dart';
 import 'screens/home_screen.dart';
@@ -88,6 +90,8 @@ class _WargameClientAppState extends State<WargameClientApp> {
   late final WatchSyncService _watchSyncService;
 
   ThemeMode _themeMode = ThemeMode.dark;
+  ClientLocaleMode _localeMode = ClientLocaleMode.system;
+  Locale? _locale;
   bool _interconnectDebugEnabled = false;
   int _currentIndex = 0;
   List<WargameSession> _sessions = const [];
@@ -112,9 +116,14 @@ class _WargameClientAppState extends State<WargameClientApp> {
         ClientSettingsRepository(store: _fallbackStore);
     _watchSyncLogger = WatchSyncLogger(
       onToast: (message) {
+        final context = _scaffoldMessengerKey.currentContext;
         _scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
-            content: Text(message),
+            content: Text(
+              context == null
+                  ? message
+                  : localizedSyncMessage(AppLocalizations.of(context), message),
+            ),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -133,6 +142,7 @@ class _WargameClientAppState extends State<WargameClientApp> {
 
   Future<void> _loadInitialState() async {
     final themeMode = await _settingsRepository.loadThemeMode();
+    final localeMode = await _settingsRepository.loadLocaleMode();
     final sessions = await _sessionRepository.loadSessions();
     if (!mounted) {
       return;
@@ -140,6 +150,8 @@ class _WargameClientAppState extends State<WargameClientApp> {
 
     setState(() {
       _themeMode = themeMode;
+      _localeMode = localeMode;
+      _locale = _localeForMode(localeMode);
       _sessions = sessions;
       _loaded = true;
     });
@@ -168,6 +180,14 @@ class _WargameClientAppState extends State<WargameClientApp> {
       _themeMode = mode;
     });
     _settingsRepository.saveThemeMode(mode);
+  }
+
+  void _setLocaleMode(ClientLocaleMode mode) {
+    setState(() {
+      _localeMode = mode;
+      _locale = _localeForMode(mode);
+    });
+    _settingsRepository.saveLocaleMode(mode);
   }
 
   void _setInterconnectDebugEnabled(bool enabled) {
@@ -199,54 +219,78 @@ class _WargameClientAppState extends State<WargameClientApp> {
       title: 'Wargame Tab',
       scaffoldMessengerKey: _scaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: _locale,
+      localeResolutionCallback: (locale, supportedLocales) {
+        if (locale?.languageCode == 'en') {
+          return const Locale('en');
+        }
+        return const Locale('zh');
+      },
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: _themeMode,
-      home: Scaffold(
-        body: _loaded
-            ? IndexedStack(
-                index: _currentIndex,
-                children: [
-                  HomeScreen(
-                    sessions: _sessions,
-                    onDeleteSession: _deleteSession,
-                  ),
-                  DeviceScreen(syncService: _watchSyncService),
-                  SettingsScreen(
-                    themeMode: _themeMode,
-                    onThemeModeChanged: _setThemeMode,
-                    interconnectDebugEnabled: _interconnectDebugEnabled,
-                    onInterconnectDebugChanged: _setInterconnectDebugEnabled,
-                  ),
-                ],
-              )
-            : const Center(child: CircularProgressIndicator()),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.space_dashboard_outlined),
-              selectedIcon: Icon(Icons.space_dashboard_rounded),
-              label: '首页',
+      home: Builder(
+        builder: (context) {
+          final l10n = AppLocalizations.of(context);
+          return Scaffold(
+            body: _loaded
+                ? IndexedStack(
+                    index: _currentIndex,
+                    children: [
+                      HomeScreen(
+                        sessions: _sessions,
+                        onDeleteSession: _deleteSession,
+                      ),
+                      DeviceScreen(syncService: _watchSyncService),
+                      SettingsScreen(
+                        themeMode: _themeMode,
+                        onThemeModeChanged: _setThemeMode,
+                        localeMode: _localeMode,
+                        onLocaleModeChanged: _setLocaleMode,
+                        interconnectDebugEnabled: _interconnectDebugEnabled,
+                        onInterconnectDebugChanged: _setInterconnectDebugEnabled,
+                      ),
+                    ],
+                  )
+                : const Center(child: CircularProgressIndicator()),
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              destinations: [
+                NavigationDestination(
+                  icon: const Icon(Icons.space_dashboard_outlined),
+                  selectedIcon: const Icon(Icons.space_dashboard_rounded),
+                  label: l10n.navHome,
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.watch_outlined),
+                  selectedIcon: const Icon(Icons.watch_rounded),
+                  label: l10n.navDevice,
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.settings_outlined),
+                  selectedIcon: const Icon(Icons.settings_rounded),
+                  label: l10n.navSettings,
+                ),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.watch_outlined),
-              selectedIcon: Icon(Icons.watch_rounded),
-              label: '设备',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings_rounded),
-              label: '设置',
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
+}
+
+Locale? _localeForMode(ClientLocaleMode mode) {
+  return switch (mode) {
+    ClientLocaleMode.system => null,
+    ClientLocaleMode.zh => const Locale('zh'),
+    ClientLocaleMode.en => const Locale('en'),
+  };
 }

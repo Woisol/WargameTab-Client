@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../models/wargame_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/match_score_panel.dart';
+import '../widgets/timeline_chart.dart';
 
 class MatchDetailScreen extends StatelessWidget {
   const MatchDetailScreen({
@@ -17,18 +19,19 @@ class MatchDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('${session.dateLabel} 复盘'),
+        title: Text(l10n.matchReview(session.dateLabel)),
         actions: [
           PopupMenuButton<String>(
-            tooltip: '更多操作',
+            tooltip: l10n.moreActions,
             onSelected: (value) {
               if (value == 'delete') {
                 _confirmDelete(context);
               }
             },
-            itemBuilder: (context) => const [
+            itemBuilder: (context) => [
               PopupMenuItem<String>(
                 value: 'delete',
                 child: Row(
@@ -36,7 +39,7 @@ class MatchDetailScreen extends StatelessWidget {
                   children: [
                     Icon(Icons.delete_outline_rounded),
                     SizedBox(width: 10),
-                    Text('删除'),
+                    Text(l10n.delete),
                   ],
                 ),
               ),
@@ -70,15 +73,15 @@ class MatchDetailScreen extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('删除对局'),
-        content: const Text('确认删除这场对局？'),
+        title: Text(AppLocalizations.of(context).deleteMatch),
+        content: Text(AppLocalizations.of(context).confirmDeleteMatch),
         actions: [
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           const SizedBox(height: 8),
           FilledButton(
@@ -86,7 +89,7 @@ class MatchDetailScreen extends StatelessWidget {
               backgroundColor: Theme.of(context).colorScheme.errorContainer,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('删除'),
+            child: Text(AppLocalizations.of(context).delete),
           ),
         ],
       ),
@@ -105,7 +108,9 @@ class MatchDetailScreen extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('删除失败')));
+        ).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).deleteFailed)),
+        );
       }
     }
   }
@@ -118,13 +123,14 @@ class _TimePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: AppTheme.panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('比赛时间', style: Theme.of(context).textTheme.titleMedium),
+          Text(l10n.matchTime, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           Text(
             session.timeRangeLabel,
@@ -132,7 +138,10 @@ class _TimePanel extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '总时长：${session.durationDetailLabel}',
+            l10n.durationDetail(
+              session.duration.inMinutes,
+              session.duration.inSeconds.remainder(60),
+            ),
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
@@ -148,6 +157,7 @@ class _TimelinePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       height: 210,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
@@ -155,95 +165,11 @@ class _TimelinePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('K/D 时间线', style: Theme.of(context).textTheme.titleMedium),
+          Text(l10n.timeline, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 14),
-          Expanded(child: _TimelineChart(session: session)),
+          Expanded(child: TimelineChart(session: session)),
         ],
       ),
     );
   }
-}
-
-class _TimelineChart extends StatelessWidget {
-  const _TimelineChart({required this.session});
-
-  final WargameSession session;
-
-  @override
-  Widget build(BuildContext context) {
-    final durationSeconds = session.duration.inSeconds <= 0
-        ? 1
-        : session.duration.inSeconds;
-    final colors = context.wargameColors;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final chartHeight = constraints.maxHeight - 26;
-        final midY = chartHeight / 2;
-        final labels = _timelineLabels(durationSeconds);
-        return Stack(
-          children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              top: midY,
-              child: Container(height: 1, color: colors.line),
-            ),
-            for (final event in session.events)
-              Positioned(
-                left:
-                    ((event.time.clamp(0, durationSeconds) as num).toDouble() /
-                        durationSeconds) *
-                    (constraints.maxWidth - 5),
-                top: event.type == 'kill' ? midY - 28 : midY + 8,
-                child: Container(
-                  width: 5,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: event.type == 'kill'
-                        ? AppColors.kill
-                        : AppColors.death,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Row(
-                children: [
-                  for (final label in labels)
-                    Expanded(
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-List<String> _timelineLabels(int seconds) {
-  final half = (seconds / 2).round();
-  final threeQuarter = (seconds * 3 / 4).round();
-  return [
-    '0:00',
-    _minuteLabel(half),
-    _minuteLabel(threeQuarter),
-    _minuteLabel(seconds),
-  ];
-}
-
-String _minuteLabel(int seconds) {
-  final minutes = seconds ~/ 60;
-  final rest = seconds.remainder(60).toString().padLeft(2, '0');
-  return '$minutes:$rest';
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../models/wargame_session.dart';
 import '../theme/app_theme.dart';
 
@@ -20,6 +21,7 @@ class MatchRecordCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.wargameColors;
+    final l10n = AppLocalizations.of(context);
     final card = Container(
       margin: EdgeInsets.only(bottom: dense ? 10 : 12),
       child: Material(
@@ -57,7 +59,7 @@ class MatchRecordCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '持续 ${session.durationLabel}',
+                              '${l10n.totalDuration} ${session.durationLabel}',
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ],

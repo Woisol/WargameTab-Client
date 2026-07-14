@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../models/career_stats.dart';
 import '../theme/app_theme.dart';
 
@@ -13,13 +14,14 @@ class CareerDonutPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.wargameColors;
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: AppTheme.panelDecoration(context, color: colors.surfaceHigh),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('生涯战绩', style: Theme.of(context).textTheme.titleLarge),
+          Text(l10n.careerStats, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 18),
           Row(
             children: [
@@ -82,11 +84,23 @@ class CareerDonutPanel extends StatelessWidget {
                   ? 3
                   : 2;
               final metrics = [
-                _DetailMetric(label: 'KPM', value: stats.kpmLabel),
-                _DetailMetric(label: '总时长', value: stats.totalDurationLabel),
-                _DetailMetric(label: '总局数', value: '${stats.matchCount}'),
-                _DetailMetric(label: '平均击杀', value: stats.averageKillsLabel),
-                _DetailMetric(label: '最高击杀', value: '${stats.bestKills}'),
+                _DetailMetric(label: l10n.kpm, value: stats.kpmLabel),
+                _DetailMetric(
+                  label: l10n.totalDuration,
+                  value: stats.totalDurationLabel,
+                ),
+                _DetailMetric(
+                  label: l10n.totalMatches,
+                  value: '${stats.matchCount}',
+                ),
+                _DetailMetric(
+                  label: l10n.averageKills,
+                  value: stats.averageKillsLabel,
+                ),
+                _DetailMetric(
+                  label: l10n.bestKills,
+                  value: '${stats.bestKills}',
+                ),
               ];
               return GridView.builder(
                 itemCount: metrics.length,

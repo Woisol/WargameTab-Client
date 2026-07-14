@@ -38,4 +38,29 @@ void main() {
 
     expect(await repository.loadInterconnectDebugEnabled(), isTrue);
   });
+
+  test('ClientSettingsRepository defaults to system locale', () async {
+    final repository = ClientSettingsRepository(store: MemoryKeyValueStore());
+
+    expect(await repository.loadLocaleMode(), ClientLocaleMode.system);
+  });
+
+  test('ClientSettingsRepository persists locale modes', () async {
+    final store = MemoryKeyValueStore();
+    final repository = ClientSettingsRepository(store: store);
+
+    for (final mode in ClientLocaleMode.values) {
+      await repository.saveLocaleMode(mode);
+      expect(await repository.loadLocaleMode(), mode);
+    }
+  });
+
+  test('ClientSettingsRepository falls back to system for invalid locale', () async {
+    final store = MemoryKeyValueStore();
+    await store.setString(ClientSettingsRepository.localeModeKey, 'invalid');
+
+    final repository = ClientSettingsRepository(store: store);
+
+    expect(await repository.loadLocaleMode(), ClientLocaleMode.system);
+  });
 }

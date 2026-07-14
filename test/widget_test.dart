@@ -1,6 +1,12 @@
 import 'package:client/main.dart';
+import 'package:client/data/client_settings_repository.dart';
+import 'package:client/data/key_value_store.dart';
+import 'package:client/l10n/generated/app_localizations.dart';
 import 'package:client/models/wargame_session.dart';
 import 'package:client/screens/match_detail_screen.dart';
+import 'package:client/theme/app_theme.dart';
+import 'package:client/sync/watch_sync_channel.dart';
+import 'package:client/widgets/match_score_panel.dart';
 import 'package:client/widgets/match_record_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,7 +28,7 @@ void main() {
   testWidgets('home renders mock career summary and latest match', (
     tester,
   ) async {
-    await tester.pumpWidget(const WargameClientApp());
+    await _pumpChineseApp(tester, watchSyncChannel: _NoopWatchSyncChannel());
     await tester.pumpAndSettle();
 
     expect(find.text('Wargame Tab'), findsOneWidget);
@@ -46,6 +52,12 @@ void main() {
     expect(find.text('历史对局'), findsOneWidget);
     expect(find.byType(MatchRecordCard), findsNWidgets(4));
 
+    await tester.scrollUntilVisible(
+      find.byType(MatchRecordCard).first,
+      180,
+      scrollable: outerScrollable,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(MatchRecordCard).first);
     await tester.pumpAndSettle();
 
@@ -53,7 +65,7 @@ void main() {
   });
 
   testWidgets('show more opens the full history list', (tester) async {
-    await tester.pumpWidget(const WargameClientApp());
+    await _pumpChineseApp(tester, watchSyncChannel: _NoopWatchSyncChannel());
     await tester.pumpAndSettle();
 
     final outerScrollable = find.byWidgetPredicate(
@@ -74,7 +86,7 @@ void main() {
   });
 
   testWidgets('settings tab exposes theme mode choices', (tester) async {
-    await tester.pumpWidget(const WargameClientApp());
+    await _pumpChineseApp(tester, watchSyncChannel: _NoopWatchSyncChannel());
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('设置'));
@@ -83,14 +95,53 @@ void main() {
     expect(find.text('主题外观'), findsOneWidget);
     expect(find.text('深色'), findsOneWidget);
     expect(find.text('浅色'), findsOneWidget);
-    expect(find.text('跟随系统'), findsOneWidget);
+    expect(find.text('跟随系统'), findsAtLeastNWidgets(1));
     expect(find.text('互联调试'), findsOneWidget);
+  });
+
+  testWidgets('settings tab exposes language choices and switches to English', (
+    tester,
+  ) async {
+    await _pumpChineseApp(tester, watchSyncChannel: _NoopWatchSyncChannel());
+
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<ClientLocaleMode>));
+    await tester.pumpAndSettle();
+
+    expect(find.text('跟随系统'), findsAtLeastNWidgets(1));
+    expect(find.text('中文'), findsAtLeastNWidgets(1));
+    expect(find.text('English'), findsOneWidget);
+
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Settings'), findsAtLeastNWidgets(1));
+    expect(find.text('Language'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('latest match score panel opens its detail screen', (tester) async {
+    await _pumpChineseApp(tester, watchSyncChannel: _NoopWatchSyncChannel());
+
+    final outerScrollable = find.byWidgetPredicate(
+      (widget) => widget is Scrollable && widget.physics is BouncingScrollPhysics,
+    );
+    await tester.scrollUntilVisible(
+      find.byType(MatchScorePanel),
+      240,
+      scrollable: outerScrollable,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(MatchScorePanel).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026-07-10 复盘'), findsOneWidget);
   });
 
   testWidgets('device tab exposes the automatically started paired channel', (
     tester,
   ) async {
-    await tester.pumpWidget(const WargameClientApp());
+    await _pumpChineseApp(tester);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('设备'));
@@ -98,14 +149,14 @@ void main() {
 
     expect(find.text('通道已启用'), findsOneWidget);
     expect(find.text('停用通道'), findsOneWidget);
-    expect(find.text('等待手表发送'), findsOneWidget);
+    expect(find.text('等待手表发送'), findsAtLeastNWidgets(1));
     expect(find.text('同步摘要'), findsOneWidget);
   });
 
   testWidgets('automatically started mock channel imports synced sessions', (
     tester,
   ) async {
-    await tester.pumpWidget(const WargameClientApp());
+    await _pumpChineseApp(tester);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('设备'));
@@ -120,6 +171,10 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: AppTheme.dark,
         home: MatchDetailScreen(
           session: _widgetSession(),
           onDeleteSession: (_) async {
@@ -145,6 +200,39 @@ void main() {
 
     expect(deleted, isTrue);
   });
+}
+
+Future<void> _pumpChineseApp(
+  WidgetTester tester, {
+  WatchSyncChannel? watchSyncChannel,
+}) async {
+  final store = MemoryKeyValueStore();
+  await store.setString(ClientSettingsRepository.localeModeKey, 'zh');
+  await tester.pumpWidget(
+    WargameClientApp(
+      settingsRepository: ClientSettingsRepository(store: store),
+      watchSyncChannel: watchSyncChannel,
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+class _NoopWatchSyncChannel implements WatchSyncChannel {
+  @override
+  Stream<String> get messages => Stream<String>.empty();
+
+  @override
+  WatchSyncChannelState get state =>
+      const WatchSyncChannelState(available: true);
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Future<void> send(String raw) async {}
 }
 
 WargameSession _widgetSession() {

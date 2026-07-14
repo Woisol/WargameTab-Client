@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
+import '../l10n/sync_message_localizer.dart';
 import '../sync/watch_sync_models.dart';
 import '../sync/watch_sync_service.dart';
 import '../theme/app_theme.dart';
@@ -44,16 +46,17 @@ class _DeviceScreenState extends State<DeviceScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.wargameColors;
+    final l10n = AppLocalizations.of(context);
     final state = widget.syncService.state;
     return SafeArea(
       child: ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
         children: [
-          Text('设备', style: Theme.of(context).textTheme.displaySmall),
+          Text(l10n.device, style: Theme.of(context).textTheme.displaySmall),
           const SizedBox(height: 6),
           Text(
-            '配对通道用于接收手表自动发送的已完成对局。',
+            l10n.deviceDescription,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 18),
@@ -75,21 +78,32 @@ class _DeviceScreenState extends State<DeviceScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('同步摘要', style: Theme.of(context).textTheme.titleLarge),
+                Text(l10n.syncSummary, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 14),
                 _SyncRow(
-                  label: '最近同步',
-                  value: _lastSyncLabel(state.lastSyncAt),
+                  label: l10n.lastSync,
+                  value: _lastSyncLabel(l10n, state.lastSyncAt),
                 ),
-                _SyncRow(label: '本次写入', value: '${state.lastImportedCount} 场'),
                 _SyncRow(
-                  label: '通道状态',
-                  value: state.channelReady ? '等待手表发送' : '尚未启用',
+                  label: l10n.writtenMatches,
+                  value: l10n.importedMatches(state.lastImportedCount),
+                ),
+                _SyncRow(
+                  label: l10n.channelStatus,
+                  value: state.channelReady
+                      ? l10n.waitingWatch
+                      : l10n.channelNotEnabled,
                 ),
                 if (state.diagnosticMessage != null)
-                  _SyncRow(label: '诊断通道', value: state.diagnosticMessage!),
+                  _SyncRow(
+                    label: l10n.diagnosticChannel,
+                    value: localizedSyncMessage(l10n, state.diagnosticMessage!),
+                  ),
                 if (state.errorMessage != null)
-                  _SyncRow(label: '状态', value: state.errorMessage!),
+                  _SyncRow(
+                    label: l10n.status,
+                    value: localizedSyncMessage(l10n, state.errorMessage!),
+                  ),
               ],
             ),
           ),
@@ -108,6 +122,7 @@ class _ChannelPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.wargameColors;
+    final l10n = AppLocalizations.of(context);
     final busy = state.syncing;
     final ready = state.channelReady;
     return Container(
@@ -142,16 +157,16 @@ class _ChannelPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      ready ? '通道已启用' : '配对通道',
+                      ready ? l10n.channelEnabled : l10n.pairingChannel,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       state.syncing
-                          ? '正在写入手表发送的数据'
+                          ? l10n.writingWatchData
                           : ready
-                          ? '等待手表发送'
-                          : '启用后接收已配对手表的数据',
+                          ? l10n.waitingWatch
+                          : l10n.deviceDescription,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
@@ -168,7 +183,9 @@ class _ChannelPanel extends StatelessWidget {
                   icon: Icon(
                     ready ? Icons.link_off_rounded : Icons.link_rounded,
                   ),
-                  label: Text(ready ? '停用通道' : '启用通道'),
+                  label: Text(
+                    ready ? l10n.disableChannel : l10n.enableChannel,
+                  ),
                 ),
               ),
             ],
@@ -187,6 +204,7 @@ class _ChannelStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.wargameColors;
+    final l10n = AppLocalizations.of(context);
     final ready = state.channelReady;
     return Container(
       padding: const EdgeInsets.all(18),
@@ -206,10 +224,14 @@ class _ChannelStatusCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('诊断通道', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  l10n.diagnosticChannel,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 4),
                 Text(
-                  state.diagnosticMessage ?? (ready ? '配对通道运行中' : '等待手表发送'),
+                  state.diagnosticMessage ??
+                      (ready ? l10n.channelRunning : l10n.waitingWatch),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -225,14 +247,14 @@ class _ChannelStatusCard extends StatelessWidget {
   }
 }
 
-String _lastSyncLabel(DateTime? value) {
+String _lastSyncLabel(AppLocalizations l10n, DateTime? value) {
   if (value == null) {
-    return '从未同步';
+    return l10n.neverSynced;
   }
 
   final hour = value.hour.toString().padLeft(2, '0');
   final minute = value.minute.toString().padLeft(2, '0');
-  return '今天 $hour:$minute';
+  return l10n.todayAt('$hour:$minute');
 }
 
 class _SyncRow extends StatelessWidget {
