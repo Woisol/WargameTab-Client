@@ -138,6 +138,59 @@ void main() {
     expect(find.text('2026-07-10 复盘'), findsOneWidget);
   });
 
+  testWidgets('the tapped home entry becomes the only enabled Hero source', (
+    tester,
+  ) async {
+    await _pumpChineseApp(tester, watchSyncChannel: _NoopWatchSyncChannel());
+
+    final outerScrollable = find.byWidgetPredicate(
+      (widget) => widget is Scrollable && widget.physics is BouncingScrollPhysics,
+    );
+    final latestHeroMode = find.byKey(const Key('home-latest-hero-mode'));
+    final historyHeroMode = find.byKey(
+      const Key('home-history-hero-mode-session_20260710_night'),
+    );
+
+    expect(tester.widget<HeroMode>(latestHeroMode).enabled, isFalse);
+    expect(tester.widget<HeroMode>(historyHeroMode).enabled, isFalse);
+
+    await tester.scrollUntilVisible(
+      find.byType(MatchScorePanel),
+      240,
+      scrollable: outerScrollable,
+    );
+    await tester.tap(find.byType(MatchScorePanel).first);
+    await tester.pump();
+
+    expect(tester.widget<HeroMode>(latestHeroMode).enabled, isTrue);
+    expect(tester.widget<HeroMode>(historyHeroMode).enabled, isFalse);
+  });
+
+  testWidgets('a history card can become the Hero source for the same match', (
+    tester,
+  ) async {
+    await _pumpChineseApp(tester, watchSyncChannel: _NoopWatchSyncChannel());
+
+    final outerScrollable = find.byWidgetPredicate(
+      (widget) => widget is Scrollable && widget.physics is BouncingScrollPhysics,
+    );
+    final latestHeroMode = find.byKey(const Key('home-latest-hero-mode'));
+    final historyHeroMode = find.byKey(
+      const Key('home-history-hero-mode-session_20260710_night'),
+    );
+
+    await tester.scrollUntilVisible(
+      find.byType(MatchRecordCard).first,
+      240,
+      scrollable: outerScrollable,
+    );
+    await tester.tap(find.byType(MatchRecordCard).first);
+    await tester.pump();
+
+    expect(tester.widget<HeroMode>(latestHeroMode).enabled, isFalse);
+    expect(tester.widget<HeroMode>(historyHeroMode).enabled, isTrue);
+  });
+
   testWidgets('device tab exposes the automatically started paired channel', (
     tester,
   ) async {

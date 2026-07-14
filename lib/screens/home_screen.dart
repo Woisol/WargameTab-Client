@@ -10,7 +10,9 @@ import '../widgets/match_score_panel.dart';
 import 'history_screen.dart';
 import 'match_detail_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+enum _HomeHeroSource { latest, history }
+
+class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.sessions,
@@ -22,8 +24,28 @@ class HomeScreen extends StatelessWidget {
   onDeleteSession;
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  _HomeHeroSource? _heroSource;
+  String? _heroSourceSessionId;
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_heroSourceSessionId != null &&
+        !widget.sessions.any(
+          (session) => session.sessionId == _heroSourceSessionId,
+        )) {
+      _heroSource = null;
+      _heroSourceSessionId = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final orderedSessions = [...sessions]
+    final orderedSessions = [...widget.sessions]
       ..sort((a, b) => b.startTime.compareTo(a.startTime));
     final latest = orderedSessions.isEmpty ? null : orderedSessions.first;
 
@@ -35,14 +57,14 @@ class HomeScreen extends StatelessWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
               sliver: SliverToBoxAdapter(
-                child: _Header(count: sessions.length),
+                child: _Header(count: widget.sessions.length),
               ),
             ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               sliver: SliverToBoxAdapter(
                 child: CareerDonutPanel(
-                  stats: CareerStats.fromSessions(sessions),
+                  stats: CareerStats.fromSessions(widget.sessions),
                 ),
               ),
             ),
@@ -53,7 +75,11 @@ class HomeScreen extends StatelessWidget {
                     ? const _EmptyPanel()
                     : _LatestMatchPanel(
                         latest,
-                        onOpenDetail: () => _openDetail(context, latest),
+                        heroEnabled:
+                            _heroSource == _HomeHeroSource.latest &&
+                            _heroSourceSessionId == latest.sessionId,
+                        onOpenDetail: () =>
+                            _openDetail(latest, _HomeHeroSource.latest),
                       ),
               ),
             ),
@@ -62,13 +88,16 @@ class HomeScreen extends StatelessWidget {
               sliver: SliverToBoxAdapter(
                 child: _HistoryPreviewPanel(
                   sessions: orderedSessions,
-                  onOpenDetail: (session) => _openDetail(context, session),
+                  heroSource: _heroSource,
+                  heroSourceSessionId: _heroSourceSessionId,
+                  onOpenDetail: (session) =>
+                      _openDetail(session, _HomeHeroSource.history),
                   onShowMore: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => HistoryScreen(
                           sessions: orderedSessions,
-                          onDeleteSession: onDeleteSession,
+                          onDeleteSession: widget.onDeleteSession,
                         ),
                       ),
                     );
@@ -82,15 +111,29 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  void _openDetail(BuildContext context, WargameSession session) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => MatchDetailScreen(
-          session: session,
-          onDeleteSession: onDeleteSession,
-        ),
-      ),
-    );
+  void _openDetail(WargameSession session, _HomeHeroSource source) {
+    setState(() {
+      _heroSource = source;
+      _heroSourceSessionId = session.sessionId;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => MatchDetailScreen(
+              session: session,
+              onDeleteSession: widget.onDeleteSession,
+            ),
+          ),
+        );
+      });
+    });
   }
 }
 
@@ -187,9 +230,14 @@ class _Header extends StatelessWidget {
 }
 
 class _LatestMatchPanel extends StatelessWidget {
-  const _LatestMatchPanel(this.session, {required this.onOpenDetail});
+  const _LatestMatchPanel(
+    this.session, {
+    required this.heroEnabled,
+    required this.onOpenDetail,
+  });
 
   final WargameSession session;
+  final bool heroEnabled;
   final VoidCallback onOpenDetail;
 
   @override
@@ -209,7 +257,14 @@ class _LatestMatchPanel extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(8),
               onTap: onOpenDetail,
-              child: MatchScorePanel(session: session),
+              child: HeroMode(
+                key: const Key('home-latest-hero-mode'),
+                enabled: heroEnabled,
+                child: Hero(
+                  tag: session.heroTag,
+                  child: MatchScorePanel(session: session),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -229,11 +284,15 @@ class _LatestMatchPanel extends StatelessWidget {
 class _HistoryPreviewPanel extends StatelessWidget {
   const _HistoryPreviewPanel({
     required this.sessions,
+    required this.heroSource,
+    required this.heroSourceSessionId,
     required this.onOpenDetail,
     required this.onShowMore,
   });
 
   final List<WargameSession> sessions;
+  final _HomeHeroSource? heroSource;
+  final String? heroSourceSessionId;
   final ValueChanged<WargameSession> onOpenDetail;
   final VoidCallback onShowMore;
 
@@ -251,11 +310,17 @@ class _HistoryPreviewPanel extends StatelessWidget {
         itemCount: previewSessions.length,
         itemBuilder: (context, index) {
           final session = previewSessions[index];
-          return MatchRecordCard(
-            session: session,
-            dense: false,
-            index: index,
-            onTap: () => onOpenDetail(session),
+          return HeroMode(
+            key: Key('home-history-hero-mode-${session.sessionId}'),
+            enabled:
+                heroSource == _HomeHeroSource.history &&
+                heroSourceSessionId == session.sessionId,
+            child: MatchRecordCard(
+              session: session,
+              dense: false,
+              index: index,
+              onTap: () => onOpenDetail(session),
+            ),
           );
         },
       ),
