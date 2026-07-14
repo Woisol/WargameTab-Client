@@ -5,14 +5,45 @@ import '../theme/app_theme.dart';
 import '../widgets/match_score_panel.dart';
 
 class MatchDetailScreen extends StatelessWidget {
-  const MatchDetailScreen({super.key, required this.session});
+  const MatchDetailScreen({
+    super.key,
+    required this.session,
+    required this.onDeleteSession,
+  });
 
   final WargameSession session;
+  final Future<List<WargameSession>> Function(WargameSession session)
+  onDeleteSession;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('${session.dateLabel} 复盘')),
+      appBar: AppBar(
+        title: Text('${session.dateLabel} 复盘'),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: '更多操作',
+            onSelected: (value) {
+              if (value == 'delete') {
+                _confirmDelete(context);
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem<String>(
+                value: 'delete',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.delete_outline_rounded),
+                    SizedBox(width: 10),
+                    Text('删除'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: SafeArea(
         child: ListView(
           physics: const BouncingScrollPhysics(),
@@ -33,6 +64,50 @@ class MatchDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除对局'),
+        content: const Text('确认删除这场对局？'),
+        actions: [
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          const SizedBox(height: 8),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.errorContainer,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+
+    try {
+      await onDeleteSession(session);
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('删除失败')));
+      }
+    }
   }
 }
 

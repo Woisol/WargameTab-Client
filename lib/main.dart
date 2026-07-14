@@ -184,6 +184,15 @@ class _WargameClientAppState extends State<WargameClientApp> {
     });
   }
 
+  Future<List<WargameSession>> _deleteSession(WargameSession session) async {
+    final sessions = await _sessionRepository.deleteSession(session.sessionId);
+    if (mounted) {
+      _setSessions(sessions);
+    }
+
+    return sessions;
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -198,7 +207,10 @@ class _WargameClientAppState extends State<WargameClientApp> {
             ? IndexedStack(
                 index: _currentIndex,
                 children: [
-                  HomeScreen(sessions: _sessions),
+                  HomeScreen(
+                    sessions: _sessions,
+                    onDeleteSession: _deleteSession,
+                  ),
                   DeviceScreen(syncService: _watchSyncService),
                   SettingsScreen(
                     themeMode: _themeMode,

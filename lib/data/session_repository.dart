@@ -53,6 +53,19 @@ class SessionRepository {
     );
   }
 
+  Future<List<WargameSession>> deleteSession(String sessionId) async {
+    if (sessionId.isEmpty) {
+      return loadSessions();
+    }
+
+    final sessions = await loadSessions();
+    final remaining = sessions
+        .where((session) => session.sessionId != sessionId)
+        .toList();
+    await saveSessions(remaining);
+    return remaining;
+  }
+
   Future<List<WargameSession>> upsertSyncedSessions(
     List<WargameSession> incoming,
   ) async {

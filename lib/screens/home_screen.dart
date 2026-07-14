@@ -10,9 +10,15 @@ import 'history_screen.dart';
 import 'match_detail_screen.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, required this.sessions});
+  const HomeScreen({
+    super.key,
+    required this.sessions,
+    required this.onDeleteSession,
+  });
 
   final List<WargameSession> sessions;
+  final Future<List<WargameSession>> Function(WargameSession session)
+  onDeleteSession;
 
   @override
   Widget build(BuildContext context) {
@@ -57,8 +63,10 @@ class HomeScreen extends StatelessWidget {
                   onShowMore: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) =>
-                            HistoryScreen(sessions: orderedSessions),
+                        builder: (context) => HistoryScreen(
+                          sessions: orderedSessions,
+                          onDeleteSession: onDeleteSession,
+                        ),
                       ),
                     );
                   },
@@ -74,7 +82,10 @@ class HomeScreen extends StatelessWidget {
   void _openDetail(BuildContext context, WargameSession session) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => MatchDetailScreen(session: session),
+        builder: (context) => MatchDetailScreen(
+          session: session,
+          onDeleteSession: onDeleteSession,
+        ),
       ),
     );
   }
@@ -212,38 +223,43 @@ class _HistoryPreviewPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.wargameColors;
+    final sessionPreview = [
+      const _SectionTitle('历史对局'),
+      const SizedBox(height: 12),
+      ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: sessions.length,
+        itemBuilder: (context, index) {
+          final session = sessions[index];
+          return MatchRecordCard(
+            session: session,
+            dense: false,
+            index: index,
+            onTap: () => onOpenDetail(session),
+          );
+        },
+      ),
+    ];
+    if (sessions.length > 4) {
+      sessionPreview.addAll([
+        const SizedBox(height: 6),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onShowMore,
+            icon: const Icon(Icons.arrow_forward_rounded),
+            label: const Text('展示更多'),
+          ),
+        ),
+      ]);
+    }
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: AppTheme.panelDecoration(context, color: colors.surfaceHigh),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SectionTitle('历史对局'),
-          const SizedBox(height: 12),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: sessions.length,
-            itemBuilder: (context, index) {
-              final session = sessions[index];
-              return MatchRecordCard(
-                session: session,
-                dense: false,
-                index: index,
-                onTap: () => onOpenDetail(session),
-              );
-            },
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onShowMore,
-              icon: const Icon(Icons.arrow_forward_rounded),
-              label: const Text('展示更多'),
-            ),
-          ),
-        ],
+        children: sessionPreview,
       ),
     );
   }

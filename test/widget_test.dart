@@ -1,4 +1,6 @@
 import 'package:client/main.dart';
+import 'package:client/models/wargame_session.dart';
+import 'package:client/screens/match_detail_screen.dart';
 import 'package:client/widgets/match_record_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -112,4 +114,46 @@ void main() {
     expect(find.text('通道已启用'), findsOneWidget);
     expect(find.text('2 场'), findsOneWidget);
   });
+
+  testWidgets('match detail delete menu requires confirmation', (tester) async {
+    var deleted = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchDetailScreen(
+          session: _widgetSession(),
+          onDeleteSession: (_) async {
+            deleted = true;
+            return const <WargameSession>[];
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('删除'), findsOneWidget);
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('删除对局'), findsOneWidget);
+    expect(find.text('确认删除这场对局？'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(deleted, isTrue);
+  });
+}
+
+WargameSession _widgetSession() {
+  return WargameSession(
+    sessionId: 'widget_session',
+    startTime: 1752057600000,
+    endTime: 1752057900000,
+    status: 'finished',
+    summary: const WargameSummary(kills: 2, deaths: 1),
+    events: const [],
+  );
 }

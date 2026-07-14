@@ -82,6 +82,21 @@ void main() {
     expect(sessions[1].status, 'synced');
     expect(await store.getString(SessionRepository.sessionsKey), isNotNull);
   });
+
+  test('SessionRepository deletes one session and persists the remaining sessions', () async {
+    final repository = SessionRepository(store: MemoryKeyValueStore());
+    await repository.saveSessions([
+      _session('session_keep', 1000, kills: 1),
+      _session('session_remove', 2000, kills: 2),
+    ]);
+
+    final remaining = await repository.deleteSession('session_remove');
+
+    expect(remaining.map((item) => item.sessionId), ['session_keep']);
+    expect((await repository.loadSessions()).map((item) => item.sessionId), [
+      'session_keep',
+    ]);
+  });
 }
 
 WargameSession _session(
